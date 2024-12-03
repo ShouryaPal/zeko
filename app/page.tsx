@@ -1,8 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import Webcam from "@/components/Webcam";
-
 import HeaderSection from "@/components/HeaderSection";
 import PermissionSection from "@/components/PermissionSection";
 import InstructionSection from "@/components/InstructionSection";

@@ -19,7 +19,7 @@ export default function InstructionSection({
           Give a detailed response, providing as much information as you can.
         </li>
         <li>
-          Answer the question with examples and projects you've worked on.
+          Answer the question with examples and projects you&apos;ve worked on.
         </li>
       </ol>
       <Button
