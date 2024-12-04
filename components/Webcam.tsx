@@ -1,15 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { toast } from "sonner";
+
+interface WebcamProps {
+  onCameraReady?: () => void;
+  onMicReady?: () => void;
+  existingStream?: MediaStream | null;
+}
 
 function WebcamComponent({
   onCameraReady,
   onMicReady,
-}: {
-  onCameraReady?: () => void;
-  onMicReady?: () => void;
-}) {
+  existingStream,
+}: WebcamProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isClient, setIsClient] = useState(false);
 
@@ -19,21 +22,24 @@ function WebcamComponent({
 
     const setupWebcam = async () => {
       try {
-        // Check if browser supports getUserMedia
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("Browser doesn't support media devices");
+        if (existingStream) {
+          mediaStream = existingStream;
+        } else {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Browser doesn't support media devices");
+          }
+
+          const constraints = {
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            },
+            audio: true,
+          };
+
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         }
-
-        const constraints = {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          },
-          audio: true,
-        };
-
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (videoRef.current) {
           videoElement = videoRef.current;
@@ -42,24 +48,19 @@ function WebcamComponent({
           videoElement.onloadedmetadata = () => {
             videoElement?.play().catch((playError) => {
               console.warn("Video play error:", playError);
-              toast.error("Failed to play video stream");
             });
             onCameraReady?.();
-            toast.success("Camera connected successfully");
           };
 
           const audioTracks = mediaStream.getAudioTracks();
           if (audioTracks.length > 0) {
             onMicReady?.();
-            toast.success("Microphone connected successfully");
           }
         }
       } catch (err) {
-        // Type guard to ensure err is Error type
         if (err instanceof Error) {
           let errorMessage = "An unknown error occurred";
 
-          // Handle specific DOMException cases
           if (err instanceof DOMException) {
             switch (err.name) {
               case "NotAllowedError":
@@ -80,12 +81,6 @@ function WebcamComponent({
             }
           }
 
-          toast.error("Camera Access Error", {
-            description: errorMessage,
-            duration: 5000,
-            dismissible: true,
-          });
-
           console.warn("Media access error:", errorMessage);
         }
       }
@@ -94,9 +89,8 @@ function WebcamComponent({
     setIsClient(true);
     setupWebcam();
 
-    // Cleanup function
     return () => {
-      if (mediaStream) {
+      if (mediaStream && !existingStream) {
         mediaStream.getTracks().forEach((track) => {
           track.stop();
         });
@@ -105,7 +99,7 @@ function WebcamComponent({
         videoElement.srcObject = null;
       }
     };
-  }, [onCameraReady, onMicReady]);
+  }, [onCameraReady, onMicReady, existingStream]);
 
   if (!isClient) return null;
 
@@ -120,7 +114,6 @@ function WebcamComponent({
   );
 }
 
-// Export with dynamic import to prevent SSR issues
 export default dynamic(() => Promise.resolve(WebcamComponent), {
   ssr: false,
 });
