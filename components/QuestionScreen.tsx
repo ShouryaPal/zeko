@@ -37,6 +37,32 @@ const QuestionsScreen = () => {
 
   const currentQuestion = questions[currentQuestionIndex];
 
+  const handleMediaError = (error: unknown) => {
+    let errorMessage = "Failed to access media devices";
+
+    if (error instanceof Error) {
+      switch (error.name) {
+        case "NotReadableError":
+          errorMessage =
+            "Camera or microphone is already in use or not available";
+          break;
+        case "NotAllowedError":
+          errorMessage =
+            "Media access was denied. Please check your browser permissions";
+          break;
+        case "NotFoundError":
+          errorMessage = "No camera or microphone found on this device";
+          break;
+        default:
+          errorMessage = error.message || "Unexpected media access error";
+      }
+    }
+
+    setMediaError(errorMessage);
+    toast.error(errorMessage);
+    console.error("Media Device Error:", error);
+  };
+
   const cleanupMediaStream = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
@@ -55,105 +81,6 @@ const QuestionsScreen = () => {
       audioContextRef.current = null;
     }
     analyserRef.current = null;
-  };
-
-  useEffect(() => {
-    const initializeFirstQuestion = async () => {
-      try {
-        setIsTimerActive(true);
-        await startRecording();
-        if (audioRef.current) {
-          audioRef.current.play();
-        }
-      } catch (error) {
-        handleMediaError(error);
-      }
-    };
-
-    initializeFirstQuestion();
-
-    return () => {
-      cleanupMediaStream();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (currentQuestionIndex > 0) {
-      setIsLoading(true);
-      const timer = setTimeout(async () => {
-        try {
-          setIsLoading(false);
-          setTimeLeft(60);
-          setIsTimerActive(true);
-          await startRecording();
-          if (audioRef.current) {
-            audioRef.current.play();
-          }
-        } catch (error: unknown) {
-          setIsLoading(false);
-          handleMediaError(error);
-        }
-      }, 2000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [currentQuestionIndex]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isTimerActive && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      handleSubmit();
-    }
-
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isTimerActive, timeLeft]);
-
-  useEffect(() => {
-    const analyzeAudio = () => {
-      if (analyserRef.current) {
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        setAudioLevel(average);
-      }
-      if (isRecording) {
-        requestAnimationFrame(analyzeAudio);
-      }
-    };
-
-    if (isRecording) {
-      analyzeAudio();
-    }
-  }, [isRecording]);
-
-  const handleMediaError = (error: Error) => {
-    let errorMessage = "Failed to access media devices";
-
-    switch (error.name) {
-      case "NotReadableError":
-        errorMessage =
-          "Camera or microphone is already in use or not available";
-        break;
-      case "NotAllowedError":
-        errorMessage =
-          "Media access was denied. Please check your browser permissions";
-        break;
-      case "NotFoundError":
-        errorMessage = "No camera or microphone found on this device";
-        break;
-      default:
-        errorMessage = error.message || "Unexpected media access error";
-    }
-
-    setMediaError(errorMessage);
-    toast.error(errorMessage);
-    console.error("Media Device Error:", error);
   };
 
   const startRecording = async () => {
@@ -241,6 +168,81 @@ const QuestionsScreen = () => {
       audio: audioUrl,
     });
   };
+
+  useEffect(() => {
+    const initializeFirstQuestion = async () => {
+      try {
+        setIsTimerActive(true);
+        await startRecording();
+        if (audioRef.current) {
+          audioRef.current.play();
+        }
+      } catch (error: unknown) {
+        handleMediaError(error);
+      }
+    };
+
+    initializeFirstQuestion();
+
+    return () => {
+      cleanupMediaStream();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentQuestionIndex > 0) {
+      setIsLoading(true);
+      const timer = setTimeout(async () => {
+        try {
+          setIsLoading(false);
+          setTimeLeft(60);
+          setIsTimerActive(true);
+          await startRecording();
+          if (audioRef.current) {
+            audioRef.current.play();
+          }
+        } catch (error: unknown) {
+          setIsLoading(false);
+          handleMediaError(error);
+        }
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isTimerActive && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      handleSubmit();
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isTimerActive, timeLeft]);
+
+  useEffect(() => {
+    const analyzeAudio = () => {
+      if (analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        setAudioLevel(average);
+      }
+      if (isRecording) {
+        requestAnimationFrame(analyzeAudio);
+      }
+    };
+
+    if (isRecording) {
+      analyzeAudio();
+    }
+  }, [isRecording]);
 
   const handleSubmit = async () => {
     try {
